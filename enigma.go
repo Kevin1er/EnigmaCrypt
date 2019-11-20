@@ -11,11 +11,19 @@ import (
 var rotors = []string{
 	"EKMFLGDQVZNTOWYHXUSPAIBRCJ", // Rotor I
 	"AJDKSIRUXBLHWTMCQGZNPYFVOE", // Rotor II
-	"DFHJLCPRTXVZNYEIWGAKMUSQOB", // Rotor III
+	"BDFHJLCPRTXVZNYEIWGAKMUSQO", // Rotor III
 	"ESOVPZJAYQUIRHXLNFTGKDCMWB", // Rotor IV
 	"VZBRGITYUPSDNHLXAWMJQOFECK", // Rotor V
 	"YRUHQSLDPXNGOKMIEBFZCWVJAT", // Reflector A
 	"RDOBJNTKVEHMLFCWZAXGYIPSUQ", // Reflector B
+}
+
+var rotorsInv = []string{
+	"UWYGADFPVZBECKMTHXSLRINQOJ", // Rotor I
+	"AJPCZWRLFBDKOTYUQGENHXMIVS", // Rotor II
+	"TAGBPCSDQEUFVNZHYIXJWLRKOM", // Rotor III
+	"HZWVARTNLGUPXQCEJMBSKDYOIF", // Rotor IV
+	"QCYLXWENFTZOSMVJUDKGIARPHB", // Rotor V
 }
 
 /**
@@ -43,6 +51,23 @@ func coincidenceIndex(_message string) float64 {
 }
 
 /**
+ * rotors increment function :
+ * Use to increment rotors key values
+ */
+func rotorsIncr(_key [3]int, _rotors [3]int) [3]int {
+	var notch = [5]int{16, 4, 21, 9, 25}
+	if _key[1] == notch[_rotors[1]] {
+		_key[0] = (_key[0] + 1) % 26
+		_key[1] = (_key[1] + 1) % 26
+	}
+	if _key[2] == notch[_rotors[2]] {
+		_key[1] = (_key[1] + 1) % 26
+	}
+	_key[2] = (_key[2] + 1) % 26
+	return _key
+}
+
+/**
  * decrypt function :
  * Use to decrypt a message using a key
  */
@@ -50,40 +75,16 @@ func decrypt(_message string, _rotors [3]int, _ref int, _key [3]int) string {
 	var builder strings.Builder
 
 	for _, char := range _message {
-		_key[2]++
-		if _key[2] == 26 {
-			_key[2] = 0
-			_key[1]++
-		}
-		if _key[1] == 26 {
-			_key[1] = 0
-			_key[0]++
-		}
-		if _key[0] == 26 {
-			_key[0] = 0
-		}
+		_key = rotorsIncr(_key, _rotors)
+		var rd = (byte(rotors[_rotors[2]][(byte(char)-65+byte(_key[2])+26)%26]) - 65 + 26 - byte(_key[2])) % 26
+		var rm = (byte(rotors[_rotors[1]][(rd+byte(_key[1])+26)%26]) - 65 + 26 - byte(_key[1])) % 26
+		var rg = (byte(rotors[_rotors[0]][(rm+byte(_key[0])+26)%26]) - 65 + 26 - byte(_key[0])) % 26
+		var r = byte(rotors[_ref][rg] - 65)
 
-		var rd = byte(rotors[_rotors[2]][(byte(char)-65+byte(_key[2]))%26]) - byte(_key[2])
-		var rm = byte(rotors[_rotors[1]][(rd-65+byte(_key[1]))%26]) // - byte(_key[1])
-		var rg = byte(rotors[_rotors[0]][(rm-65+byte(_key[0]))%26]) // - byte(_key[0])
-		var r = int(rotors[_ref][rg-65])
-
-		for posg, letterg := range rotors[_rotors[0]] {
-			if int(letterg)-65 == r-65 {
-				for posm, letterm := range rotors[_rotors[1]] {
-					if int(letterm)-65 == (((posg-_key[0])%26)+26)%26 {
-						for posd, letterd := range rotors[_rotors[2]] {
-							if int(letterd)-65 == (((posm-_key[1])%26)+26)%26 {
-								builder.WriteRune(rune((((posd-_key[2])%26)+26)%26 + 65))
-								break
-							}
-						}
-						break
-					}
-				}
-				break
-			}
-		}
+		var rg2 = (byte(rotorsInv[_rotors[0]][(r+byte(_key[0])+26)%26]) - 65 + 26 - byte(_key[0])) % 26
+		var rm2 = (byte(rotorsInv[_rotors[1]][(rg2+byte(_key[1])+26)%26]) - 65 + 26 - byte(_key[1])) % 26
+		var rd2 = (byte(rotorsInv[_rotors[2]][(rm2+byte(_key[2])+26)%26]) - 65 + 26 - byte(_key[2])) % 26
+		builder.WriteRune(rune(rd2 + 65))
 	}
 
 	return builder.String()
@@ -192,9 +193,9 @@ func main() {
 	fmt.Println("Entrer le texte")
 	scanner.Scan()
 	line := scanner.Text()
-	fmt.Println(decrypt(cleanMessage(line), rotors, ref, key))
-	//cryptanalys(decrypt(cleanMessage(line), rotors, ref, key))
-	//cryptanalys(cleanMessage("OAZAL NXONL MKNVY XVUQM HWMEO SXDLB TIOWC MTEYV WTGWV IHEAR XKPGI NXQCM MPSJH KDVUO JEZLB MIDBG KXYMD KMGJX NMWRY ZTFGB NRDWV ZEDRQ PKNQP MRPJM VHWQG ZELFG AHZQC GXPQN LOVMJ DNJXZ FQYUS BJAHM SKGRI MQHFH KQICD ZZBBZ PLWPS NOMNL EOBTZ ZGJRK WVBQP OWWAT BNOHP ARLNP JKHKW PMZNK DODSD JCTJV LUSDA KOWLU SKRGK JJOCI HJJTW VALFN SMYOH NVOVR PVYRA PZJBT VLEXS OLSJH CAKNG WOBYM IAFJP AOGUZ IBFSL"))
+	var encrypt = decrypt(cleanMessage(line), rotors, ref, key)
+	fmt.Println(encrypt)
+	cryptanalys(encrypt)
 }
 
 /**
